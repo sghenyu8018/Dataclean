@@ -1,11 +1,22 @@
 """
 对话格式转换模块
 """
+import random
 from typing import Dict, List
 
 
 class ConversationFormatter:
     """对话格式化器"""
+    
+    # 多样化的提问模板
+    PROMPT_TEMPLATES = [
+        "请把这段话翻译成{lang_name}：",
+        "用{lang_name}怎么说：",
+        "将以下内容翻译为{lang_name}：",
+        "帮我翻译成{lang_name}：",
+        "作为新闻媒体翻译专家，请将以下内容翻译为{lang_name}：",
+        "请以新闻报道的口吻，将这段话翻译成{lang_name}："
+    ]
     
     @staticmethod
     def format_conversation(language: str, source_text: str, target_text: str) -> Dict:
@@ -23,8 +34,9 @@ class ConversationFormatter:
         # system消息
         system_content = "你是一个专业的翻译大模型。"
         
-        # 构建user消息：帮我翻译成{语言}：{中文文本}
-        user_content = f"帮我翻译成{language}：{target_text}"
+        # 随机选择一个提问模板
+        template = random.choice(ConversationFormatter.PROMPT_TEMPLATES)
+        user_content = template.format(lang_name=language) + target_text
         
         # assistant消息：源语言文本
         assistant_content = source_text
