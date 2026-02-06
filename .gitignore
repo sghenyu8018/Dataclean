@@ -39,5 +39,6 @@ Thumbs.db
 
 # Project specific
 *.jsonl
+*.tsv
 output/
 test_data/
