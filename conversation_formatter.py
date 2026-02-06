@@ -20,8 +20,11 @@ class ConversationFormatter:
         Returns:
             对话格式的字典
         """
-        # 构建user消息：用{语言}怎么说：{中文文本}
-        user_content = f"用{language}怎么说：{target_text}"
+        # system消息
+        system_content = "你是一个专业的翻译大模型。"
+        
+        # 构建user消息：帮我翻译成{语言}：{中文文本}
+        user_content = f"帮我翻译成{language}：{target_text}"
         
         # assistant消息：源语言文本
         assistant_content = source_text
@@ -29,6 +32,10 @@ class ConversationFormatter:
         # 构建对话格式
         conversation = {
             "messages": [
+                {
+                    "role": "system",
+                    "content": system_content
+                },
                 {
                     "role": "user",
                     "content": user_content

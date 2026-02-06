@@ -60,6 +60,13 @@ def main():
         help="文件编码（默认：utf-8）"
     )
     
+    parser.add_argument(
+        "--max-per-language",
+        type=int,
+        default=700,
+        help="每种语言最多输出的翻译对数量（默认：700）"
+    )
+    
     args = parser.parse_args()
     
     # 加载语言配置
@@ -89,8 +96,12 @@ def main():
         "valid_pairs": 0,
         "invalid_pairs": 0,
         "duplicate_pairs": 0,
+        "skipped_pairs": 0,  # 因达到语言限制而跳过的翻译对
         "by_language": {}
     }
+    
+    # 每种语言的输出计数器
+    language_counters = {}
     
     # 准备输出文件
     output_path = Path(args.output)
@@ -100,6 +111,7 @@ def main():
     print(f"输入文件夹: {args.input}")
     print(f"输出文件: {args.output}")
     print(f"长度限制: {args.min_length} - {args.max_length} 字符")
+    print(f"每种语言最多输出: {args.max_per_language} 条")
     print("-" * 60)
     
     # 处理所有文件
@@ -130,14 +142,25 @@ def main():
                     stats["by_language"][language] = {
                         "files": 0,
                         "pairs": 0,
-                        "valid": 0
+                        "valid": 0,
+                        "output": 0  # 实际输出的数量
                     }
+                    language_counters[language] = 0
                 
                 stats["by_language"][language]["files"] += 1
+                
+                # 检查该语言是否已达到限制
+                if language_counters[language] >= args.max_per_language:
+                    print(f"\n提示：{language} 已达到输出限制 ({args.max_per_language} 条)，跳过文件 {file_path.name}")
+                    continue
                 
                 # 处理文件中的每一对翻译
                 try:
                     for source_text, target_text in processor.read_tsv_file(file_path):
+                        # 检查该语言是否已达到限制
+                        if language_counters[language] >= args.max_per_language:
+                            break  # 跳出当前文件的处理循环
+                        
                         stats["total_pairs"] += 1
                         file_stats["processed"] += 1
                         stats["by_language"][language]["pairs"] += 1
@@ -148,6 +171,11 @@ def main():
                         )
                         
                         if is_valid:
+                            # 检查是否已达到该语言的输出限制
+                            if language_counters[language] >= args.max_per_language:
+                                stats["skipped_pairs"] += 1
+                                continue
+                            
                             # 格式化对话
                             conversation = formatter.format_conversation(
                                 language, cleaned_source, cleaned_target
@@ -159,6 +187,8 @@ def main():
                             stats["valid_pairs"] += 1
                             file_stats["valid"] += 1
                             stats["by_language"][language]["valid"] += 1
+                            stats["by_language"][language]["output"] += 1
+                            language_counters[language] += 1
                         else:
                             stats["invalid_pairs"] += 1
                             file_stats["invalid"] += 1
@@ -180,6 +210,8 @@ def main():
         print(f"有效翻译对: {stats['valid_pairs']}")
         print(f"无效翻译对: {stats['invalid_pairs']}")
         print(f"重复翻译对: {stats['duplicate_pairs']}")
+        print(f"因限制跳过: {stats['skipped_pairs']}")
+        print(f"实际输出: {sum(lang_stats['output'] for lang_stats in stats['by_language'].values())} 条")
         print(f"输出文件: {args.output}")
         print("-" * 60)
         
@@ -190,6 +222,7 @@ def main():
                 print(f"    文件数: {lang_stats['files']}")
                 print(f"    翻译对: {lang_stats['pairs']}")
                 print(f"    有效对: {lang_stats['valid']}")
+                print(f"    实际输出: {lang_stats['output']} 条")
         
         print("=" * 60)
         

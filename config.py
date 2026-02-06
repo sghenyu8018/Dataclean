@@ -2,6 +2,7 @@
 配置文件
 """
 import json
+import re
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -144,20 +145,35 @@ def detect_language_from_filename(filename: str, language_map: Dict[str, str] = 
     name_without_ext = Path(filename).stem.lower()
     
     # 尝试匹配常见的语言代码格式
-    # 格式1: lang-zh.tsv 或 lang_zh.tsv
-    parts = name_without_ext.replace('_', '-').split('-')
-    if len(parts) >= 2:
-        lang_code = parts[0]
+    # 格式1: xxx-lang-zh.tsv 或 xxx.lang-zh.tsv (如 news-commentary-v18.de-zh.tsv)
+    # 查找 -lang-zh 或 .lang-zh 模式
+    # 匹配 -xx-zh 或 .xx-zh 或 _xx-zh 模式（xx是2-3个字母的语言代码）
+    pattern = r'[-._]([a-z]{2,3})-zh$|[-._]([a-z]{2,3})_zh$'
+    match = re.search(pattern, name_without_ext)
+    if match:
+        lang_code = match.group(1) or match.group(2)
         if lang_code in LANGUAGE_CODE_MAP:
             return LANGUAGE_CODE_MAP[lang_code]
     
-    # 格式2: 直接是语言代码
+    # 格式2: lang-zh.tsv 或 lang_zh.tsv (直接以语言代码开头)
+    parts = name_without_ext.replace('_', '-').split('-')
+    if len(parts) >= 2:
+        lang_code = parts[0]
+        if lang_code in LANGUAGE_CODE_MAP and parts[1] in ['zh', 'cn']:
+            return LANGUAGE_CODE_MAP[lang_code]
+    
+    # 格式3: 直接是语言代码
     if name_without_ext in LANGUAGE_CODE_MAP:
         return LANGUAGE_CODE_MAP[name_without_ext]
     
-    # 格式3: 包含语言代码的文件名
-    for lang_code, lang_name in LANGUAGE_CODE_MAP.items():
-        if lang_code in name_without_ext and lang_code != 'zh':
-            return lang_name
+    # 格式4: 包含语言代码的文件名（更精确的匹配）
+    # 按长度排序，优先匹配较长的语言代码
+    sorted_codes = sorted(LANGUAGE_CODE_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+    for lang_code, lang_name in sorted_codes:
+        if lang_code != 'zh' and lang_code in name_without_ext:
+            # 确保是完整的单词边界匹配，避免误匹配
+            pattern = r'[-._]' + re.escape(lang_code) + r'[-._]|^' + re.escape(lang_code) + r'[-._]'
+            if re.search(pattern, name_without_ext):
+                return lang_name
     
     return None
