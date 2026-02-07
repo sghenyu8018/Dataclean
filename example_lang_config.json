@@ -1,11 +1,7 @@
 {
   "news-commentary-v18.de-zh.tsv": "德语",
-  "news-commentary-v18.ar-zh.tsv": "阿拉伯语",
-  "news-commentary-v18.kk-zh.tsv": "哈萨克语",
-  "de-zh.tsv": "德语",
-  "en-zh.tsv": "英语",
-  "fr-zh.tsv": "法语",
-  "es-zh.tsv": "西班牙语",
-  "ja-zh.tsv": "日语",
-  "ko-zh.tsv": "韩语"
+  "news-commentary-v18.en-zh.tsv": "英语",
+  "news-commentary-v18.fr-zh.tsv": "法语",
+  "news-commentary-v18.es-zh.tsv": "西班牙语",
+  "news-commentary-v18.ja-zh.tsv": "日语"
 }

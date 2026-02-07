@@ -112,6 +112,11 @@ def main():
     print(f"输出文件: {args.output}")
     print(f"长度限制: {args.min_length} - {args.max_length} 字符")
     print(f"每种语言最多输出: {args.max_per_language} 条")
+    if language_map:
+        print(f"语言配置文件: {args.language_config}")
+        print(f"将只处理配置文件中的 {len(language_map)} 个文件")
+    else:
+        print(f"将处理所有TSV文件")
     print("-" * 60)
     
     # 处理所有文件
@@ -120,49 +125,53 @@ def main():
         tsv_files = processor.scan_tsv_files()
         stats["total_files"] = len(tsv_files)
         
-        print(f"找到 {stats['total_files']} 个TSV文件")
+        # 计算实际要处理的文件数
+        if processor.target_files:
+            actual_files = [f for f in tsv_files if f.name in processor.target_files]
+            print(f"找到 {stats['total_files']} 个TSV文件，将处理 {len(actual_files)} 个文件（配置文件中的文件）")
+        else:
+            print(f"找到 {stats['total_files']} 个TSV文件")
         print("-" * 60)
         
         # 打开输出文件
         with open(output_path, 'w', encoding='utf-8') as outfile:
-            # 处理每个文件
-            for file_path in tqdm(tsv_files, desc="处理文件"):
-                file_stats = {
-                    "processed": 0,
-                    "valid": 0,
-                    "invalid": 0
-                }
-                
-                # 获取语言信息
-                language = processor.get_language_from_file(file_path)
-                if not language:
-                    language = "未知语言"
-                
-                if language not in stats["by_language"]:
-                    stats["by_language"][language] = {
-                        "files": 0,
-                        "pairs": 0,
-                        "valid": 0,
-                        "output": 0  # 实际输出的数量
-                    }
-                    language_counters[language] = 0
-                
-                stats["by_language"][language]["files"] += 1
-                
-                # 检查该语言是否已达到限制
-                if language_counters[language] >= args.max_per_language:
-                    print(f"\n提示：{language} 已达到输出限制 ({args.max_per_language} 条)，跳过文件 {file_path.name}")
-                    continue
-                
-                # 处理文件中的每一对翻译
-                try:
-                    for source_text, target_text in processor.read_tsv_file(file_path):
-                        # 检查该语言是否已达到限制
-                        if language_counters[language] >= args.max_per_language:
-                            break  # 跳出当前文件的处理循环
-                        
+            # 使用process_all_files方法，它会自动处理文件过滤
+            current_file = None
+            files_processed = set()
+            
+            # 使用tqdm显示进度（需要先计算要处理的文件数）
+            if processor.target_files:
+                files_to_process = [f for f in tsv_files if f.name in processor.target_files]
+            else:
+                files_to_process = tsv_files
+            
+            with tqdm(total=len(files_to_process), desc="处理文件") as pbar:
+                for language, source_text, target_text, file_name in processor.process_all_files():
+                    # 跟踪文件处理
+                    if file_name != current_file:
+                        if current_file is not None:
+                            pbar.update(1)
+                        current_file = file_name
+                        if file_name not in files_processed:
+                            files_processed.add(file_name)
+                            if language not in stats["by_language"]:
+                                stats["by_language"][language] = {
+                                    "files": 0,
+                                    "pairs": 0,
+                                    "valid": 0,
+                                    "output": 0  # 实际输出的数量
+                                }
+                                language_counters[language] = 0
+                            stats["by_language"][language]["files"] += 1
+                    
+                    # 检查该语言是否已达到限制
+                    if language_counters[language] >= args.max_per_language:
+                        stats["skipped_pairs"] += 1
+                        continue
+                    
+                    # 处理翻译对
+                    try:
                         stats["total_pairs"] += 1
-                        file_stats["processed"] += 1
                         stats["by_language"][language]["pairs"] += 1
                         
                         # 数据清洗
@@ -185,21 +194,23 @@ def main():
                             outfile.write(json.dumps(conversation, ensure_ascii=False) + '\n')
                             
                             stats["valid_pairs"] += 1
-                            file_stats["valid"] += 1
                             stats["by_language"][language]["valid"] += 1
                             stats["by_language"][language]["output"] += 1
                             language_counters[language] += 1
                         else:
                             stats["invalid_pairs"] += 1
-                            file_stats["invalid"] += 1
                             
                             # 如果是重复导致的无效
                             if is_duplicate:
                                 stats["duplicate_pairs"] += 1
+                    
+                    except Exception as e:
+                        print(f"\n错误：处理翻译对时出错: {e}")
+                        continue
                 
-                except Exception as e:
-                    print(f"\n错误：处理文件 {file_path.name} 时出错: {e}")
-                    continue
+                # 更新最后一个文件的进度
+                if current_file is not None:
+                    pbar.update(1)
         
         # 输出统计信息
         print("\n" + "=" * 60)

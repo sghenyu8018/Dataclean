@@ -1,0 +1,35 @@
+配置文件过滤功能验证报告
+========================
+
+代码逻辑检查：
+-------------
+
+1. TSVProcessor.__init__ 方法：
+   ✓ 如果提供 language_map，创建 target_files = set(language_map.keys())
+   ✓ 如果不提供，target_files = None
+
+2. process_all_files 方法：
+   ✓ 如果 target_files is not None，检查 file_path.name 是否在 target_files 中
+   ✓ 如果不在，打印跳过消息并 continue
+   ✓ 如果在，继续处理文件
+
+3. 主程序 main.py：
+   ✓ 加载配置文件到 language_map
+   ✓ 将 language_map 传递给 TSVProcessor
+   ✓ 显示配置文件信息
+
+预期行为：
+---------
+
+使用配置文件 example_lang_config.json：
+- 配置文件包含: news-commentary-v18.de-zh.tsv, news-commentary-v18.en-zh.tsv, 
+                news-commentary-v18.fr-zh.tsv, news-commentary-v18.es-zh.tsv,
+                news-commentary-v18.ja-zh.tsv
+
+- 应该处理: 这5个文件
+- 应该跳过: 其他所有文件（如 ar-zh.tsv, cs-zh.tsv, kk-zh.tsv 等）
+
+不使用配置文件：
+- 应该处理: 所有TSV文件
+
+代码逻辑验证：✓ 正确

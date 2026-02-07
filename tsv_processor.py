@@ -18,11 +18,13 @@ class TSVProcessor:
         Args:
             input_dir: 输入文件夹路径
             encoding: 文件编码
-            language_map: 语言映射字典
+            language_map: 语言映射字典（如果提供，则只处理映射中的文件）
         """
         self.input_dir = Path(input_dir)
         self.encoding = encoding
         self.language_map = language_map or {}
+        # 如果提供了语言映射，提取要处理的文件名集合
+        self.target_files = set(language_map.keys()) if language_map else None
         
     def scan_tsv_files(self) -> List[Path]:
         """
@@ -50,6 +52,9 @@ class TSVProcessor:
         Yields:
             (源语言文本, 中文文本) 元组
         """
+        # 增加CSV字段大小限制（默认131072，增加到10MB）
+        csv.field_size_limit(min(2**31-1, 10 * 1024 * 1024))
+        
         # 尝试多种编码
         encodings = [self.encoding, "utf-8-sig", "utf-8", "gbk", "gb2312"]
         
@@ -153,7 +158,7 @@ class TSVProcessor:
     
     def process_all_files(self) -> Iterator[Tuple[str, str, str, str]]:
         """
-        处理所有TSV文件
+        处理所有TSV文件（如果提供了语言映射配置，则只处理配置中的文件）
         
         Yields:
             (语言名称, 源语言文本, 中文文本, 文件名) 元组
@@ -161,6 +166,12 @@ class TSVProcessor:
         tsv_files = self.scan_tsv_files()
         
         for file_path in tsv_files:
+            # 如果指定了目标文件列表，检查当前文件是否在列表中
+            if self.target_files is not None:
+                if file_path.name not in self.target_files:
+                    print(f"跳过文件 {file_path.name}（不在配置文件中）")
+                    continue
+            
             # 获取语言信息
             language = self.get_language_from_file(file_path)
             if not language:

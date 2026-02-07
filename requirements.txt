@@ -1,2 +1,4 @@
 tqdm>=4.66.0
 langdetect>=1.0.9
+dashscope>=1.14.0
+python-dotenv>=1.0.0
